@@ -19,6 +19,33 @@ Missing raw subjet values are filled with `-99` for floating-point branches and 
 - `cms_driver_run/`: HTCondor-oriented cmsDriver/cmsRun scripts and JDL files.
 - `crab_run/`: CRAB job preparation and submission helper.
 
+## Clone on CMSLPC or lxplus
+
+Clone the repository in a work area with enough quota for a CMSSW release and batch-generated configs. On CMSLPC, a `nobackup` area is usually a good choice:
+
+```bash
+cd /uscms/home/$USER/nobackup
+git clone https://github.com/Krishnakantparida/generate_nanoAODv15.git
+cd generate_nanoAODv15
+```
+
+On lxplus, use an EOS or work area where you can create CMSSW releases and CRAB projects:
+
+```bash
+cd /eos/user/${USER:0:1}/$USER
+git clone https://github.com/Krishnakantparida/generate_nanoAODv15.git
+cd generate_nanoAODv15
+```
+
+Required tools and access:
+
+- `/cvmfs/cms.cern.ch` mounted and readable.
+- `git`, `python3`, `scramv1`, `cmsDriver.py`, and `cmsRun`.
+- `dasgoclient` for YAML-driven file discovery.
+- `condor_submit` for CMSLPC HTCondor running, or `crab` for CRAB submission.
+- A valid CMS proxy, created with `voms-proxy-init -rfc -voms cms -valid 192:00`.
+- Write access to `/eos/uscms/store/group/lpcjm/$USER/` for the default output location.
+
 ## CMSSW Setup
 
 Use the same release and architecture as the runner scripts:
@@ -66,7 +93,7 @@ condor_submit cms_nanoAODv15_mc_generated.jdl
 You can also prepare chunk files manually in `cms_driver_run/`:
 
 - data chunks: `miniAOD_chunk_0.txt`, `miniAOD_chunk_1.txt`, ...
-- MC chunks: `miniAODSIM_chunk_4_10.txt`, `miniAODSIM_chunk_4_11.txt`, ...
+- MC chunks: `miniAODSIM_chunk_0.txt`, `miniAODSIM_chunk_1.txt`, ...
 - header-aware data chunks: `miniAOD_chunk_singlemu0_0.txt`, ...
 - header-aware MC chunks: `miniAODSIM_chunk_ttbar-powheg_0.txt`, ...
 
