@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # 1. Verify EOS access
-ls /eos/uscms/store/user/${USER}
+ls /eos/uscms/store/group/lpcjm/${USER}
 
 # 2. Create EOS output directories
-mkdir -p /eos/uscms/store/user/${USER}/cms_nanoaod/mc
-mkdir -p /eos/uscms/store/user/${USER}/cms_nanoaod/data
+mkdir -p /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/mc
+mkdir -p /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/data
 
 # 3. Create all 5 files above (copy-paste the content)
 
@@ -28,5 +28,5 @@ condor_submit cms_nanoAODv15_data.jdl
 condor_q
 
 # 8. Check EOS output
-ls -l /eos/uscms/store/user/${USER}/cms_nanoaod/mc/
-ls -l /eos/uscms/store/user/${USER}/cms_nanoaod/data/
+ls -l /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/mc/
+ls -l /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/data/

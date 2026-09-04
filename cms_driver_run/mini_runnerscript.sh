@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # 0. Create EOS output directories
-#mkdir -p /eos/uscms/store/user/${USER}/cms_nanoaod/mc
-#mkdir -p /eos/uscms/store/user/${USER}/cms_nanoaod/data
+#mkdir -p /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/mc
+#mkdir -p /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/data
 
 cd "$(dirname "$0")"
 
@@ -20,5 +20,5 @@ condor_q
 
 
 # 4. Check EOS output
-ls -l /eos/uscms/store/user/${USER}/cms_nanoaod/mc/
-ls -l /eos/uscms/store/user/${USER}/cms_nanoaod/data/
+ls -l /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/mc/
+ls -l /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/data/

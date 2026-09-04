@@ -42,10 +42,33 @@ The Condor scripts also transfer and build `MyAnalysis` automatically inside the
 
 ## Running With HTCondor
 
-Prepare chunk files in `cms_driver_run/`:
+Prepare chunk files in `cms_driver_run/` directly from the YAML headers:
+
+```bash
+cd cms_driver_run
+python3 prepare_condor_chunks.py ../miniAOD+SIM_sample_query/muon_2024_miniAOD_DATA.yaml --mode data --files-per-chunk 5
+python3 prepare_condor_chunks.py ../miniAOD+SIM_sample_query/muon_2024_miniAODSIM_MC.yaml --mode mc --files-per-chunk 5
+```
+
+This writes header-aware chunk files plus generated JDL files:
+
+- `cms_nanoAODv15_data_generated.jdl`
+- `cms_nanoAODv15_mc_generated.jdl`
+
+Submit those generated files:
+
+```bash
+mkdir -p logs
+condor_submit cms_nanoAODv15_data_generated.jdl
+condor_submit cms_nanoAODv15_mc_generated.jdl
+```
+
+You can also prepare chunk files manually in `cms_driver_run/`:
 
 - data chunks: `miniAOD_chunk_0.txt`, `miniAOD_chunk_1.txt`, ...
 - MC chunks: `miniAODSIM_chunk_4_10.txt`, `miniAODSIM_chunk_4_11.txt`, ...
+- header-aware data chunks: `miniAOD_chunk_singlemu0_0.txt`, ...
+- header-aware MC chunks: `miniAODSIM_chunk_ttbar-powheg_0.txt`, ...
 
 Each line should be a MiniAOD/MiniAODSIM logical file name, for example `/store/.../file.root`.
 
@@ -60,8 +83,8 @@ condor_submit cms_nanoAODv15_mc.jdl
 
 Outputs are copied to:
 
-- data: `/eos/uscms/store/user/$USER/cms_nanoaod/data`
-- MC: `/eos/uscms/store/user/$USER/cms_nanoaod/mc`
+- data: `/eos/uscms/store/group/lpcjm/$USER/cms_nanoaod/data/<yaml-header>/`
+- MC: `/eos/uscms/store/group/lpcjm/$USER/cms_nanoaod/mc/<yaml-header>/`
 
 The JDL files transfer `../cmsskim_customize.py`, `../MyAnalysis`, and the chunk file from `cms_driver_run`, so the submission directory is relocatable.
 
@@ -93,8 +116,10 @@ Useful options:
 
 - `--max-files N`: limit DAS output for testing.
 - `--storage-site T3_US_FNALLPC`: set CRAB storage site.
-- `--out-lfn-dir-base /store/user/$USER/cms_nanoaod`: set output LFN base.
+- `--out-lfn-dir-base /store/group/lpcjm/$USER/cms_nanoaod`: set output LFN base.
 - `--output-dir generated`: choose where generated CRAB configs and psets are written.
+
+CRAB output LFNs are written below `<out-lfn-dir-base>/{data,mc}/<yaml-header>/`, matching the Condor layout.
 
 Run CRAB commands from an initialized CMSSW area where `MyAnalysis/JetTools` has already been copied into `$CMSSW_BASE/src` and built with `scram b`. CRAB packages that CMSSW area for remote jobs; the helper ships only the generated file list and `cmsskim_customize.py` as extra job inputs.
 

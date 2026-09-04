@@ -131,6 +131,10 @@ def dataset_label(dataset):
     return re.sub(r"[^A-Za-z0-9_]+", "_", label).strip("_")
 
 
+def safe_path_label(label):
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", label).strip("_") or "unclassified"
+
+
 def write_file_list(path, files, xrootd_prefix):
     with open(path, "w", encoding="utf-8") as handle:
         for name in files:
@@ -203,9 +207,10 @@ def append_customization(cfg_path, file_list_name, output_file, output_module, i
         ))
 
 
-def write_crab_config(path, args, request_name, pset_name, file_list_name, output_dataset_tag):
+def write_crab_config(path, args, request_name, pset_name, file_list_name, output_dataset_tag, sample_name):
     site_storage = args.storage_site
-    out_lfn = args.out_lfn_dir_base
+    tier_dir = "mc" if args.is_mc else "data"
+    out_lfn = "%s/%s/%s" % (args.out_lfn_dir_base.rstrip("/"), tier_dir, safe_path_label(sample_name))
     work_area = args.crab_work_area
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(textwrap.dedent(
@@ -293,6 +298,7 @@ def build_jobs(args):
                 pset_name=cfg_path.name,
                 file_list_name=file_list.name,
                 output_dataset_tag=job_name,
+                sample_name=sample_name,
             )
 
             for dependency in ("cmsskim_customize.py",):
@@ -325,7 +331,7 @@ def parse_args():
     parser.add_argument("--output-dir", default="generated")
     parser.add_argument("--crab-work-area", default="crab_projects")
     parser.add_argument("--storage-site", default="T3_US_FNALLPC")
-    parser.add_argument("--out-lfn-dir-base", default="/store/user/%s/cms_nanoaod" % os.environ.get("USER", "USER"))
+    parser.add_argument("--out-lfn-dir-base", default="/store/group/lpcjm/%s/cms_nanoaod" % os.environ.get("USER", "USER"))
     parser.add_argument("--xrootd-prefix", default="root://cmsxrootd.fnal.gov/")
     parser.add_argument("--threads", type=int, default=8)
     parser.add_argument("--number", type=int, default=-1)

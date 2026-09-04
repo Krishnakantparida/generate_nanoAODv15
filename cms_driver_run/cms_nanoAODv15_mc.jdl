@@ -3,11 +3,12 @@
 # Output files are stored in EOS space
 
 universe = vanilla
+SampleName = ttbar-powheg
 executable = run_cmsdriver_mc.sh
-arguments  = $(Process)
+arguments  = $(Process) $(SampleName)
 
 # Input/Output specification - No output transfer (using EOS directly)
-transfer_input_files = $(SUBMIT_DIR)/../cmsskim_customize.py, $(SUBMIT_DIR)/../MyAnalysis, $(SUBMIT_DIR)/miniAODSIM_chunk_4_1$(Process).txt
+transfer_input_files = $(SUBMIT_DIR)/../cmsskim_customize.py, $(SUBMIT_DIR)/../MyAnalysis, $(SUBMIT_DIR)/miniAODSIM_chunk_$(SampleName)_$(Process).txt
 
 
 # Log, Output, and Error files (stored in AFS for monitoring)

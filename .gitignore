@@ -6,6 +6,9 @@ __pycache__/
 *.err
 logs/
 cms_driver_run/logs/
+cms_driver_run/condor_*_jobs.txt
+cms_driver_run/cms_nanoAODv15_*_generated.jdl
+cms_driver_run/miniAOD*_chunk*.txt
 crab_run/generated/
 crab_run/crab_projects/
 CMSSW_*/

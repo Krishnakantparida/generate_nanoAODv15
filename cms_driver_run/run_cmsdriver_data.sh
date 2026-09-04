@@ -7,10 +7,16 @@
 
 set -euo pipefail  # Exit on any error
 
-JOBID="${1:?Usage: run_cmsdriver_data.sh JOBID}"
-INPUT_LIST="miniAOD_chunk_${JOBID}.txt"
-OUTPUT_FILE="NANOAOD_${JOBID}.root"
-CFG_FILE="Data24_NanoAODv15_${JOBID}.py"
+JOBID="${1:?Usage: run_cmsdriver_data.sh JOBID [YAML_HEADER_SAMPLE] [INPUT_LIST]}"
+SAMPLE_NAME="${2:-${SAMPLE_NAME:-unclassified}}"
+SAMPLE_DIR=$(printf "%s" "$SAMPLE_NAME" | sed 's/[^A-Za-z0-9_.-]/_/g')
+if [ "$SAMPLE_DIR" = "unclassified" ]; then
+    INPUT_LIST="${3:-miniAOD_chunk_${JOBID}.txt}"
+else
+    INPUT_LIST="${3:-miniAOD_chunk_${SAMPLE_DIR}_${JOBID}.txt}"
+fi
+OUTPUT_FILE="NANOAOD_${SAMPLE_DIR}_${JOBID}.root"
+CFG_FILE="Data24_NanoAODv15_${SAMPLE_DIR}_${JOBID}.py"
 SUBMIT_DIR="$PWD"
 ANALYSIS_DIR="${SUBMIT_DIR}/MyAnalysis"
 CUSTOMIZE_FILE="${SUBMIT_DIR}/cmsskim_customize.py"
@@ -29,6 +35,7 @@ echo "Host: $(hostname)"
 echo "Start time: $(date)"
 echo "=========================================="
 echo "Starting NanoAOD job ${JOBID}"
+echo "YAML header sample: ${SAMPLE_NAME}"
 echo "Current directory: $(pwd)"
 echo ""
 
@@ -108,9 +115,15 @@ cd $LOCAL_WORK_DIR
 # ============================================
 export EOS_USERNAME=$(whoami)
 EOS_ENDPOINT="root://cmseos.fnal.gov"
-export EOS_OUTPUT_BASE="/eos/uscms/store/user/${EOS_USERNAME}/cms_nanoaod/data"
+export EOS_OUTPUT_BASE="/eos/uscms/store/group/lpcjm/${EOS_USERNAME}/cms_nanoaod/data/${SAMPLE_DIR}"
 
 echo "Checking CMSLPC EOS access..."
+
+if ! xrdfs "${EOS_ENDPOINT}" stat "${EOS_OUTPUT_BASE}" >/dev/null 2>&1; then
+    echo "Creating CMSLPC EOS destination:"
+    echo " ${EOS_ENDPOINT}/${EOS_OUTPUT_BASE}"
+    xrdfs "${EOS_ENDPOINT}" mkdir -p "${EOS_OUTPUT_BASE}"
+fi
 
 if ! xrdfs "${EOS_ENDPOINT}" stat "${EOS_OUTPUT_BASE}"; then
     echo "ERROR: CMSLPC EOS destination is not accessible:"
