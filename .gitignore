@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.root
+*.log
+*.out
+*.err
+logs/
+cms_driver_run/logs/
+crab_run/generated/
+crab_run/crab_projects/
+CMSSW_*/
+*.tar.gz
+.DS_Store

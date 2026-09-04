@@ -1,0 +1,35 @@
+# HTCondor Job Description File for Data NanoAOD Production
+# CMSSW_15_0_15_patch4 is set up in batch space
+# Output files are stored in EOS space
+
+universe = vanilla
+executable = run_cmsdriver_data.sh 
+arguments  = $(Process)
+
+# Input/Output specification - No output transfer (using EOS directly)
+transfer_input_files = $(SUBMIT_DIR)/../cmsskim_customize.py, $(SUBMIT_DIR)/../MyAnalysis, $(SUBMIT_DIR)/miniAOD_chunk_$(Process).txt
+
+
+# Log, Output, and Error files (stored in AFS for monitoring)
+log = logs/data_nanoaod_$(Cluster)_$(Process).log
+output = logs/data_nanoaod_$(Cluster)_$(Process).out
+error = logs/data_nanoaod_$(Cluster)_$(Process).err
+
+# Resource requirements
+request_cpus = 8
+request_memory = 4096MB
+request_disk = 10GB
+
+# HTCondor settings
+on_exit_hold = (ExitCode != 0)
+on_exit_remove = (ExitCode == 0)
+#periodic_remove = (time() - EnteredCurrentStatus) > (4*24*3600)
+
+# xrootd user proxy enabling
+use_x509userproxy = true
+
+# Job priority
+priority = 0
++JobFlavour = "testmatch"
+
+queue 10
