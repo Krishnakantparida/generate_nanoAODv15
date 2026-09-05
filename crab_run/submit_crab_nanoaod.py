@@ -221,7 +221,7 @@ def write_crab_config(path, args, request_name, pset_name, file_list_name, outpu
             config.General.requestName = '{request_name}'
             config.General.workArea = '{work_area}'
             config.General.transferOutputs = True
-            config.General.transferLogs = False
+            config.General.transferLogs = True
 
             config.JobType.pluginName = 'Analysis'
             config.JobType.psetName = '{pset_name}'
@@ -254,11 +254,47 @@ def run(cmd, cwd):
     subprocess.check_call(cmd, cwd=str(cwd))
 
 
+def crab_project_dir(job_dir, args, request_name):
+    work_area = Path(args.crab_work_area)
+    if not work_area.is_absolute():
+        work_area = job_dir / work_area
+    return work_area / request_name
+
+
+def generated_job_dirs(output_dir):
+    return sorted(path.parent for path in output_dir.glob("*/crab_config.py"))
+
+
+def manage_existing_jobs(args, output_dir):
+    job_dirs = generated_job_dirs(output_dir)
+    if not job_dirs:
+        raise RuntimeError(
+            "No generated CRAB jobs found in %s; run without a lifecycle action first"
+            % output_dir
+        )
+
+    for job_dir in job_dirs:
+        crab_config = job_dir / "crab_config.py"
+        request_name = job_dir.name
+        project_dir = crab_project_dir(job_dir, args, request_name)
+        command = {
+            "status": ["crab", "status", "-d", str(project_dir), "--verboseErrors"],
+            "resubmit": ["crab", "resubmit", "-d", str(project_dir)],
+            "getoutput": ["crab", "getoutput", "-d", str(project_dir)],
+        }[args.action]
+        logging.info("Managing %s using %s", crab_config, args.action)
+        run(command, cwd=job_dir)
+
+
 def build_jobs(args):
     repo_root = Path(__file__).resolve().parents[1]
     crab_dir = Path(__file__).resolve().parent
     output_dir = (crab_dir / args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.action in ("status", "resubmit", "getoutput"):
+        manage_existing_jobs(args, output_dir)
+        return
 
     datasets = load_dataset_queries(args.dataset_yaml)
     output_module = "NANOAODSIMoutput" if args.is_mc else "NANOAODoutput"
@@ -267,6 +303,9 @@ def build_jobs(args):
         files = get_filenames(dataset, retry=args.retry)
         if args.max_files:
             files = files[:args.max_files]
+        if not files:
+            logging.warning("No files found for %s; skipping", dataset)
+            continue
 
         for chunk_index, chunk in enumerate(get_chunks(files, args.files_per_chunk)):
             label = dataset_label(dataset)
@@ -311,7 +350,7 @@ def build_jobs(args):
                 else:
                     subprocess.check_call(["cp", str(source), str(target)])
 
-            if args.submit:
+            if args.action == "submit":
                 run(["crab", "submit", "-c", str(crab_cfg)], cwd=job_dir)
             else:
                 logging.info("Prepared %s", crab_cfg)
@@ -319,7 +358,11 @@ def build_jobs(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("dataset_yaml", help="YAML file containing DAS dataset queries")
+    parser.add_argument(
+        "dataset_yaml",
+        nargs="?",
+        help="YAML file containing DAS dataset queries (required for prepare/submit)",
+    )
     parser.add_argument("--mc", dest="is_mc", action="store_true", help="Create NanoAODSIM jobs")
     parser.add_argument("--data", dest="is_mc", action="store_false", help="Create NanoAOD data jobs")
     parser.set_defaults(is_mc=True)
@@ -327,7 +370,19 @@ def parse_args():
     parser.add_argument("--units-per-job", type=int, default=1)
     parser.add_argument("--max-files", type=int, default=0)
     parser.add_argument("--retry", type=int, default=3)
-    parser.add_argument("--submit", action="store_true", help="Run crab submit for each generated config")
+    parser.add_argument(
+        "--action",
+        choices=("prepare", "submit", "status", "resubmit", "getoutput"),
+        default="prepare",
+        help="CRAB lifecycle action; status/resubmit/getoutput use existing generated jobs",
+    )
+    parser.add_argument(
+        "--submit",
+        action="store_const",
+        const="submit",
+        dest="action",
+        help="Backward-compatible alias for --action submit",
+    )
     parser.add_argument("--output-dir", default="generated")
     parser.add_argument("--crab-work-area", default="crab_projects")
     parser.add_argument("--storage-site", default="T3_US_FNALLPC")
@@ -354,6 +409,8 @@ def parse_args():
         raise ValueError("--files-per-chunk must be positive")
     if args.units_per_job <= 0:
         raise ValueError("--units-per-job must be positive")
+    if args.action in ("prepare", "submit") and not args.dataset_yaml:
+        parser.error("dataset_yaml is required for --action %s" % args.action)
     return args
 
 

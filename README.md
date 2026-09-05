@@ -139,6 +139,19 @@ Submit as the configs are created by adding `--submit`:
 python3 submit_crab_nanoaod.py ../miniAOD+SIM_sample_query/muon_2024_miniAODSIM_MC.yaml --mc --files-per-chunk 5 --submit
 ```
 
+The generated jobs use `crab_projects/<requestName>` as their CRAB work area.
+After submission, manage all generated projects from `crab_run/` without
+re-running the DAS queries:
+
+```bash
+python3 submit_crab_nanoaod.py --action status
+python3 submit_crab_nanoaod.py --action resubmit
+python3 submit_crab_nanoaod.py --action getoutput
+```
+
+`--action submit` is equivalent to `--submit`. The status action includes
+`--verboseErrors`, matching the standard CRAB troubleshooting workflow.
+
 Useful options:
 
 - `--max-files N`: limit DAS output for testing.
