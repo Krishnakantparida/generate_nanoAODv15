@@ -144,9 +144,16 @@ def main():
     if args.files_per_chunk <= 0:
         raise ValueError("--files-per-chunk must be positive")
 
+    # Determine output base directory based on mode
+    # For data mode: miniAOD_datasets, for mc mode: miniAODSIM_datasets
+    base_dir_name = "miniAODSIM_datasets" if args.mode == "mc" else "miniAOD_datasets"
+    base_dir = Path(__file__).parent / base_dir_name
+    base_dir.mkdir(parents=True, exist_ok=True)
+
     prefix = "miniAODSIM_chunk" if args.mode == "mc" else "miniAOD_chunk"
-    args_path = Path("condor_%s_jobs.txt" % args.mode)
-    jdl_path = Path("cms_nanoAODv15_%s_generated.jdl" % args.mode)
+    # Place the args file and JDL inside the base directory
+    args_path = base_dir / Path("condor_%s_jobs.txt" % args.mode)
+    jdl_path = base_dir / Path("cms_nanoAODv15_%s_generated.jdl" % args.mode)
     rows = []
     job_id = 0
 
@@ -155,13 +162,22 @@ def main():
         if args.max_files:
             files = files[:args.max_files]
 
+        # Determine primary dataset name (first component between slashes)
+        primary_name = dataset.strip("/").split("/")[0] if dataset else "unknown"
+        # Create subdirectory for this primary dataset inside the base directory
+        dataset_dir = base_dir / primary_name
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+
         sample_dir = safe_path_label(sample_name)
         for chunk in get_chunks(files, args.files_per_chunk):
-            chunk_name = "%s_%s_%d.txt" % (prefix, sample_dir, job_id)
-            with open(chunk_name, "w", encoding="utf-8") as handle:
+            chunk_filename = "%s_%s_%d.txt" % (prefix, sample_dir, job_id)
+            chunk_path = dataset_dir / chunk_filename
+            with open(chunk_path, "w", encoding="utf-8") as handle:
                 for name in chunk:
                     handle.write(name + "\n")
-            rows.append("%d %s %s\n" % (job_id, sample_dir, chunk_name))
+            # Store relative path (relative to base_dir) for the JDL queue entry
+            rel_chunk_path = Path(primary_name) / chunk_filename
+            rows.append("%d %s %s\n" % (job_id, sample_dir, rel_chunk_path))
             job_id += 1
 
     with open(args_path, "w", encoding="utf-8") as handle:
