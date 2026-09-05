@@ -77,18 +77,7 @@ python3 prepare_condor_chunks.py ../miniAOD+SIM_sample_query/muon_2024_miniAOD_D
 python3 prepare_condor_chunks.py ../miniAOD+SIM_sample_query/muon_2024_miniAODSIM_MC.yaml --mode mc --files-per-chunk 5
 ```
 
-This writes header-aware chunk files plus generated JDL files:
-
-- `cms_nanoAODv15_data_generated.jdl`
-- `cms_nanoAODv15_mc_generated.jdl`
-
-Submit those generated files:
-
-```bash
-mkdir -p logs
-condor_submit cms_nanoAODv15_data_generated.jdl
-condor_submit cms_nanoAODv15_mc_generated.jdl
-```
+This writes header-aware chunk files for the Condor JDLs in `cms_driver_run/`.
 
 You can also prepare chunk files manually in `cms_driver_run/`:
 
@@ -99,14 +88,16 @@ You can also prepare chunk files manually in `cms_driver_run/`:
 
 Each line should be a MiniAOD/MiniAODSIM logical file name, for example `/store/.../file.root`.
 
-Then submit from the Condor folder:
+Then submit both data and MC jobs with the single runner script:
 
 ```bash
 cd cms_driver_run
-chmod +x run_cmsdriver_data.sh run_cmsdriver_mc.sh
-condor_submit cms_nanoAODv15_data.jdl
-condor_submit cms_nanoAODv15_mc.jdl
+./runner_script.sh
 ```
+
+The runner creates the EOS output directories and Condor log directory,
+ensures the job scripts are executable, submits both JDLs, displays the queue,
+and lists the data and MC output locations.
 
 Outputs are copied to:
 

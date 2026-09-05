@@ -1,32 +1,23 @@
 #!/bin/bash
 
-# 1. Verify EOS access
-ls /eos/uscms/store/group/lpcjm/${USER}
+set -euo pipefail
 
-# 2. Create EOS output directories
-mkdir -p /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/mc
-mkdir -p /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/data
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+EOS_OUTPUT_BASE="/eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod"
 
-# 3. Create all 5 files above (copy-paste the content)
+cd "$SCRIPT_DIR"
 
-cd "$(dirname "$0")"
+mkdir -p "$EOS_OUTPUT_BASE/mc" "$EOS_OUTPUT_BASE/data" logs
+chmod +x run_cmsdriver_mc.sh run_cmsdriver_data.sh
 
-# 4. Make scripts executable
-chmod +x run_cmsdriver_mc.sh
-chmod +x run_cmsdriver_data.sh
+if [[ -z "${X509_USER_PROXY:-}" ]]; then
+	echo "Warning: X509_USER_PROXY is not set; Condor may not access CMS storage." >&2
+fi
 
-# Add user proxy for xrootd to be used in batch
-export X509_USER_PROXY=$X509_USER_PROXY
-
-# 5. Submit MC job
 condor_submit cms_nanoAODv15_mc.jdl
-
-# 6. Submit Data job
 condor_submit cms_nanoAODv15_data.jdl
 
-# 7. Monitor jobs
 condor_q
 
-# 8. Check EOS output
-ls -l /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/mc/
-ls -l /eos/uscms/store/group/lpcjm/${USER}/cms_nanoaod/data/
+ls -l "$EOS_OUTPUT_BASE/mc/"
+ls -l "$EOS_OUTPUT_BASE/data/"
