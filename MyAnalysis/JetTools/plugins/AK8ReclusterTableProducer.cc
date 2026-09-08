@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "DataFormats/Candidate/interface/Candidate.h"
-#include "DataFormats/Candidate/interface/CandidateFwd.h"  // defines reco::CandidateView
-#include "DataFormats/Common/interface/RefVector.h"
+#include "DataFormats/Candidate/interface/CandidateFwd.h"  // defines reco::CandidateBaseRefVector
+#include "DataFormats/Common/interface/RefToBaseVector.h"
 #include "DataFormats/Common/interface/View.h"
 #include "DataFormats/NanoAOD/interface/FlatTable.h"
 #include "DataFormats/PatCandidates/interface/Jet.h"
@@ -40,14 +40,12 @@ private:
   fastjet::JetAlgorithm jetAlgorithm() const;
   RawSubjetPair findRawSubjets(const fastjet::PseudoJet&) const;
 
-  // NOTE: This token type matches the output of CandViewRefSelector
-  // (edm::RefVector<reco::CandidateView>), which is what
-  // "selectedSlimmedJetsAK8" produces in the skim config. Each element is
-  // dynamic_cast down to pat::Jet in produce(). If you ever need to run this
-  // module directly against a plain pat::Jet collection (e.g. the output of
-  // PATJetSelector, or slimmedJetsAK8 itself), this token type will NOT
-  // resolve against it -- see the class-level discussion in code review.
-  const edm::EDGetTokenT<edm::RefVector<reco::CandidateView>> fatJetsToken_;
+  // The module consumes a generic collection of reco::Candidate objects.
+  // Using edm::View<reco::Candidate> works for both the output of a
+  // CandViewRefSelector (which yields a RefVector) and a plain pat::Jet
+  // collection, avoiding the DictionaryNotFound error that arises when the
+  // token type does not have a generated dictionary.
+  const edm::EDGetTokenT<edm::View<reco::Candidate>> fatJetsToken_;
   const std::string name_;
   const std::string doc_;
   const std::string algorithm_;
@@ -58,7 +56,7 @@ private:
 };
 
 AK8ReclusterTableProducer::AK8ReclusterTableProducer(const edm::ParameterSet& cfg)
-    : fatJetsToken_(consumes<edm::RefVector<reco::CandidateView>>(cfg.getParameter<edm::InputTag>("fatJets"))),
+    : fatJetsToken_(consumes<edm::View<reco::Candidate>>(cfg.getParameter<edm::InputTag>("fatJets"))),
       name_(cfg.getParameter<std::string>("name")),
       doc_(cfg.getParameter<std::string>("doc")),
       algorithm_(cfg.getParameter<std::string>("algorithm")),
@@ -114,7 +112,7 @@ AK8ReclusterTableProducer::RawSubjetPair AK8ReclusterTableProducer::findRawSubje
 }
 
 void AK8ReclusterTableProducer::produce(edm::Event& event, const edm::EventSetup&) {
-  edm::Handle<edm::RefVector<reco::CandidateView>> fatJetRefs;
+  edm::Handle<edm::View<reco::Candidate>> fatJetRefs;
   event.getByToken(fatJetsToken_, fatJetRefs);
 
   const auto nFatJets = fatJetRefs->size();
@@ -215,11 +213,8 @@ void AK8ReclusterTableProducer::produce(edm::Event& event, const edm::EventSetup
 
 void AK8ReclusterTableProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  // NOTE: "fatJets" must resolve to an edm::RefVector<reco::CandidateView>
-  // (e.g. the output of a CandViewRefSelector such as selectedSlimmedJetsAK8),
-  // not a plain pat::Jet collection. The default below is illustrative only
-  // and will need an upstream CandViewRefSelector-style module with that
-  // label to actually run.
+  // NOTE: "fatJets" must resolve to a collection that can be read as edm::View<reco::Candidate>
+  // (e.g. the output of a CandViewRefSelector such as selectedSlimmedJetsAK8).
   desc.add<edm::InputTag>("fatJets", edm::InputTag("selectedSlimmedJetsAK8"));
   desc.add<std::string>("name", "FatJet");
   desc.add<std::string>("doc", "raw_sj1 and raw_sj2 from CA R=0.8 declustering inside each slimmedJetsAK8 jet");
