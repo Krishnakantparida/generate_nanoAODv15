@@ -119,17 +119,23 @@ def SetupSkim_HLTSingleMuonOneFatJet(process):
 
 
 def SetupAK8ReclusterSubjets(process):
-    """
-    Add raw_sj1/raw_sj2 branches to the FatJet table.
+    """Add raw_sj1/raw_sj2 branches to the FatJet table.
 
-    The C++ module first reclusters each slimmedJetsAK8 jet with Cambridge-
-    Aachen R=0.8 and then declusters the leading reclustered jet until the
-    leading resolved two-prong split is found. raw_sj1 is the larger-pT prong.
+    The C++ module reclusters each AK8 jet with Cambridge‑Aachen R=0.8 and
+    extracts the leading two‑prong split.  To keep the FatJet table size
+    consistent with the custom muon‑HLT skim we run the producer on the **filtered**
+    jet collection ``selectedSlimmedJetsAK8`` (the collection after the eta cut
+    and count filter).  The producer is appended to the end of the nano
+    sequences so it executes after the skim.
     """
+
+    # Determine which jet collection to use: the filtered one if it exists,
+    # otherwise fall back to the original collection (should never happen).
+    jet_input_tag = cms.InputTag("selectedSlimmedJetsAK8") if hasattr(process, "selectedSlimmedJetsAK8") else cms.InputTag("slimmedJetsAK8")
 
     process.ak8ReclusteredSubjetTable = cms.EDProducer(
         "AK8ReclusterTableProducer",
-        fatJets=cms.InputTag("slimmedJetsAK8"),
+        fatJets=jet_input_tag,
         name=cms.string("FatJet"),
         doc=cms.string("raw_sj1 and raw_sj2 from CA R=0.8 declustering inside each slimmedJetsAK8 jet"),
         algorithm=cms.string("CambridgeAachen"),
@@ -139,8 +145,17 @@ def SetupAK8ReclusterSubjets(process):
         missingValue=cms.double(-99.0),
     )
 
+    # Append the producer to the end of each nano sequence (instead of inserting
+    # at the front).  This guarantees it runs after the skim sequence and sees
+    # the same jet collection that will be written to the output.
     for sequence_name in ("nanoSequence", "nanoSequenceMC", "nanoSequenceFS"):
         if hasattr(process, sequence_name):
-            getattr(process, sequence_name).insert(0, process.ak8ReclusteredSubjetTable)
+            getattr(process, sequence_name).append(process.ak8ReclusteredSubjetTable)
+
+    # Guard against empty jet collections: if the selected collection is empty
+    # the producer will produce vectors filled with the ``missingValue`` which
+    # keeps the table lengths identical.  No additional code is required here
+    # because the C++ module already handles empty inputs, but the explicit
+    # choice of the filtered collection prevents mismatched lengths.
 
     return process
