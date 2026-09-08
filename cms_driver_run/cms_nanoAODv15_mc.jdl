@@ -3,12 +3,13 @@
 # Output files are stored in EOS space
 
 universe = vanilla
-SampleName = ttbar-powheg
+# SampleName will be supplied via condor_submit -append
+SampleName = $(SAMPLE_NAME)
 executable = run_cmsdriver_mc.sh
-arguments  = $(Process) $(SampleName)
+arguments  = $(Process) $(SampleName) $(InputFile)
 
 # Input/Output specification - No output transfer (using EOS directly)
-transfer_input_files = $(SUBMIT_DIR)/../cmsskim_customize.py, $(SUBMIT_DIR)/../MyAnalysis, $(SUBMIT_DIR)/miniAODSIM_chunk_$(SampleName)_$(Process).txt
+transfer_input_files = ./../cmsskim_customize.py, ./../MyAnalysis, ./Test_datasets/$(InputFile)
 
 
 # Log, Output, and Error files (stored in AFS for monitoring)
@@ -19,7 +20,7 @@ error = logs/mc_nanoaod_$(Cluster)_$(Process).err
 # Resource requirements
 request_cpus = 8
 request_memory = 6144MB
-request_disk = 8GB
+request_disk = 20GB
 
 # HTCondor settings
 on_exit_hold = (ExitCode != 0)
@@ -33,4 +34,4 @@ use_x509userproxy = true
 priority = 0
 +JobFlavour = "testmatch"
 
-queue 10
+queue 1

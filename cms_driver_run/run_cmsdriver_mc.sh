@@ -7,13 +7,19 @@
 
 set -euo pipefail  # Exit on any error
 
-JOBID="${1:?Usage: run_cmsdriver_mc.sh JOBID [YAML_HEADER_SAMPLE] [INPUT_LIST]}"
+JOBID="${1:?Usage: run_cmsdriver_mc.sh JOBID [YAML_HEADER_SAMPLE] [INPUT_FILE]}"
 SAMPLE_NAME="${2:-${SAMPLE_NAME:-unclassified}}"
 SAMPLE_DIR=$(printf "%s" "$SAMPLE_NAME" | sed 's/[^A-Za-z0-9_.-]/_/g')
-if [ "$SAMPLE_DIR" = "unclassified" ]; then
-    INPUT_LIST="${3:-miniAODSIM_chunk_${JOBID}.txt}"
+# Allow an explicit input file (chunk list) to be passed as the third argument.
+INPUT_FILE_ARG="${3:-}"
+if [ -n "$INPUT_FILE_ARG" ]; then
+    INPUT_LIST="$INPUT_FILE_ARG"
 else
-    INPUT_LIST="${3:-miniAODSIM_chunk_${SAMPLE_DIR}_${JOBID}.txt}"
+    if [ "$SAMPLE_DIR" = "unclassified" ]; then
+        INPUT_LIST="miniAODSIM_chunk_${JOBID}.txt"
+    else
+        INPUT_LIST="miniAODSIM_chunk_${SAMPLE_DIR}_${JOBID}.txt"
+    fi
 fi
 OUTPUT_FILE="NANOAODSIM_${SAMPLE_DIR}_${JOBID}.root"
 CFG_FILE="RunIII2024Summer24_NanoAODv15_${SAMPLE_DIR}_${JOBID}.py"

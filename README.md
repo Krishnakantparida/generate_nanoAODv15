@@ -106,6 +106,30 @@ Outputs are copied to:
 
 The JDL files transfer `../cmsskim_customize.py`, `../MyAnalysis`, and the chunk file from `cms_driver_run`, so the submission directory is relocatable.
 
+### Running the Test Runner Script
+
+The repository now includes a **test runner** that automatically submits a Condor job for each chunk file placed in `cms_driver_run/Test_datasets`.  It determines whether a chunk corresponds to data (files whose name starts with `singlemu`) or MC and uses the appropriate JDL.
+
+#### Prerequisites
+* A valid CMS proxy (`voms-proxy-init -rfc -voms cms -valid 192:00`).
+* The Condor environment (`condor_submit`, `condor_q`) available on the machine (e.g., CMSLPC).
+* The driver scripts (`run_cmsdriver_data.sh` and `run_cmsdriver_mc.sh`) are executable – the test runner will set the executable bit for you.
+
+#### Usage
+```bash
+cd cms_driver_run          # repository root → cms_driver_run directory
+chmod +x test_runner_script.sh   # make sure the script is executable
+./test_runner_script.sh   # submit all test chunks
+```
+
+The script will:
+1. Iterate over every file in `Test_datasets/`.
+2. Derive a `SampleName` from the filename (e.g., `singlemu0` for data or `ttbar-powheg` for MC).
+3. Submit the job with `condor_submit`, passing `SampleName` and `InputFile` variables to the JDL.
+4. Print a short status line for each submission and finally display the Condor queue with `condor_q`.
+
+After the submissions finish, you can monitor the jobs with the usual Condor tools (`condor_q`, `condor_status`, `condor_tail`).  Output files will be copied to the EOS locations defined in the driver scripts, just like the regular `runner_script.sh` workflow.
+
 ## Running With CRAB
 
 The CRAB helper reads a YAML file from `miniAOD+SIM_sample_query/`, gathers files for each DAS dataset using `dasgoclient`, chunks them with `get_chunks`, generates one cmsRun config per chunk, and writes one CRAB config per chunk.
