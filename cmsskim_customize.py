@@ -145,17 +145,22 @@ def SetupAK8ReclusterSubjets(process):
         missingValue=cms.double(-99.0),
     )
 
-    # Append the producer to the end of each nano sequence (instead of inserting
-    # at the front).  This guarantees it runs after the skim sequence and sees
-    # the same jet collection that will be written to the output.
-    for sequence_name in ("nanoSequence", "nanoSequenceMC", "nanoSequenceFS"):
-        if hasattr(process, sequence_name):
-            getattr(process, sequence_name).append(process.ak8ReclusteredSubjetTable)
+    # Instead of trying to modify the existing nano sequences (which are
+    # ``cms.Sequence`` objects that do not provide an ``append`` method), we
+    # create a dedicated path for the reclustering producer and add that path
+    # to the schedule *after* the skim path.  This ensures the producer sees the
+    # filtered jet collection and runs after the skim without relying on
+    # sequence mutation.
+    process.reclusterAK8 = cms.Path(process.ak8ReclusteredSubjetTable)
+    # Insert the new path at the end of the schedule (or create a schedule if
+    # it does not exist yet).
+    if hasattr(process, "schedule"):
+        process.schedule.append(process.reclusterAK8)
+    else:
+        process.schedule = cms.Schedule(process.reclusterAK8)
 
     # Guard against empty jet collections: if the selected collection is empty
-    # the producer will produce vectors filled with the ``missingValue`` which
-    # keeps the table lengths identical.  No additional code is required here
-    # because the C++ module already handles empty inputs, but the explicit
-    # choice of the filtered collection prevents mismatched lengths.
+    # the C++ module will fill the vectors with ``missingValue`` which keeps the
+    # table lengths identical.  No further code is required.
 
     return process
