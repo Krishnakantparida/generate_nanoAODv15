@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 
+#include "DataFormats/Candidate/interface/Candidate.h"
+#include "DataFormats/Candidate/interface/CandidateFwd.h"  // defines reco::CandidateView
+#include "DataFormats/Common/interface/RefVector.h"
 #include "DataFormats/Common/interface/View.h"
 #include "DataFormats/NanoAOD/interface/FlatTable.h"
 #include "DataFormats/PatCandidates/interface/Jet.h"
@@ -37,7 +40,14 @@ private:
   fastjet::JetAlgorithm jetAlgorithm() const;
   RawSubjetPair findRawSubjets(const fastjet::PseudoJet&) const;
 
-  const edm::EDGetTokenT<edm::View<pat::Jet>> fatJetsToken_;
+  // NOTE: This token type matches the output of CandViewRefSelector
+  // (edm::RefVector<reco::CandidateView>), which is what
+  // "selectedSlimmedJetsAK8" produces in the skim config. Each element is
+  // dynamic_cast down to pat::Jet in produce(). If you ever need to run this
+  // module directly against a plain pat::Jet collection (e.g. the output of
+  // PATJetSelector, or slimmedJetsAK8 itself), this token type will NOT
+  // resolve against it -- see the class-level discussion in code review.
+  const edm::EDGetTokenT<edm::RefVector<reco::CandidateView>> fatJetsToken_;
   const std::string name_;
   const std::string doc_;
   const std::string algorithm_;
@@ -48,7 +58,7 @@ private:
 };
 
 AK8ReclusterTableProducer::AK8ReclusterTableProducer(const edm::ParameterSet& cfg)
-    : fatJetsToken_(consumes<edm::View<pat::Jet>>(cfg.getParameter<edm::InputTag>("fatJets"))),
+    : fatJetsToken_(consumes<edm::RefVector<reco::CandidateView>>(cfg.getParameter<edm::InputTag>("fatJets"))),
       name_(cfg.getParameter<std::string>("name")),
       doc_(cfg.getParameter<std::string>("doc")),
       algorithm_(cfg.getParameter<std::string>("algorithm")),
@@ -104,10 +114,10 @@ AK8ReclusterTableProducer::RawSubjetPair AK8ReclusterTableProducer::findRawSubje
 }
 
 void AK8ReclusterTableProducer::produce(edm::Event& event, const edm::EventSetup&) {
-  edm::Handle<edm::View<pat::Jet>> fatJets;
-  event.getByToken(fatJetsToken_, fatJets);
+  edm::Handle<edm::RefVector<reco::CandidateView>> fatJetRefs;
+  event.getByToken(fatJetsToken_, fatJetRefs);
 
-  const auto nFatJets = fatJets->size();
+  const auto nFatJets = fatJetRefs->size();
   std::vector<float> rawSj1Pt(nFatJets, missingValue_);
   std::vector<float> rawSj1Eta(nFatJets, missingValue_);
   std::vector<float> rawSj1Phi(nFatJets, missingValue_);
@@ -121,8 +131,22 @@ void AK8ReclusterTableProducer::produce(edm::Event& event, const edm::EventSetup
 
   const fastjet::JetDefinition jetDef(jetAlgorithm(), rParam_);
 
-  for (size_t fatJetIdx = 0; fatJetIdx < fatJets->size(); ++fatJetIdx) {
-    const auto& fatJet = fatJets->at(fatJetIdx);
+  for (size_t fatJetIdx = 0; fatJetIdx < fatJetRefs->size(); ++fatJetIdx) {
+    const reco::Candidate* cand = (*fatJetRefs)[fatJetIdx].get();
+    if (cand == nullptr) {
+      // Defensive: null/dangling ref. Leave this entry at missingValue_.
+      continue;
+    }
+
+    const auto* fatJetPtr = dynamic_cast<const pat::Jet*>(cand);
+    if (fatJetPtr == nullptr) {
+      // Defensive: the underlying candidate isn't actually a pat::Jet.
+      // Should not happen for selectedSlimmedJetsAK8, but avoids a crash
+      // if the upstream selector's source collection ever changes type.
+      continue;
+    }
+    const auto& fatJet = *fatJetPtr;
+
     std::vector<fastjet::PseudoJet> inputs;
     inputs.reserve(fatJet.numberOfDaughters());
 
@@ -191,7 +215,12 @@ void AK8ReclusterTableProducer::produce(edm::Event& event, const edm::EventSetup
 
 void AK8ReclusterTableProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  desc.add<edm::InputTag>("fatJets", edm::InputTag("slimmedJetsAK8"));
+  // NOTE: "fatJets" must resolve to an edm::RefVector<reco::CandidateView>
+  // (e.g. the output of a CandViewRefSelector such as selectedSlimmedJetsAK8),
+  // not a plain pat::Jet collection. The default below is illustrative only
+  // and will need an upstream CandViewRefSelector-style module with that
+  // label to actually run.
+  desc.add<edm::InputTag>("fatJets", edm::InputTag("selectedSlimmedJetsAK8"));
   desc.add<std::string>("name", "FatJet");
   desc.add<std::string>("doc", "raw_sj1 and raw_sj2 from CA R=0.8 declustering inside each slimmedJetsAK8 jet");
   desc.add<std::string>("algorithm", "CambridgeAachen");
