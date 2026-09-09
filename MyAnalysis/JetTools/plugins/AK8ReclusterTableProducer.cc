@@ -40,11 +40,8 @@ private:
   fastjet::JetAlgorithm jetAlgorithm() const;
   RawSubjetPair findRawSubjets(const fastjet::PseudoJet&) const;
 
-  // The module consumes a generic collection of reco::Candidate objects.
-  // Using edm::View<reco::Candidate> works for both the output of a
-  // CandViewRefSelector (which yields a RefVector) and a plain pat::Jet
-  // collection, avoiding the DictionaryNotFound error that arises when the
-  // token type does not have a generated dictionary.
+  // Consume the same selected view as NanoAOD's main FatJet table so this
+  // extension has one row per main-table entry.
   const edm::EDGetTokenT<edm::View<reco::Candidate>> fatJetsToken_;
   const std::string name_;
   const std::string doc_;
@@ -130,25 +127,16 @@ void AK8ReclusterTableProducer::produce(edm::Event& event, const edm::EventSetup
   const fastjet::JetDefinition jetDef(jetAlgorithm(), rParam_);
 
   for (size_t fatJetIdx = 0; fatJetIdx < fatJetRefs->size(); ++fatJetIdx) {
-    const reco::Candidate* cand = (*fatJetRefs)[fatJetIdx].get();
-    if (cand == nullptr) {
-      // Defensive: null/dangling ref. Leave this entry at missingValue_.
+    const auto& candidate = (*fatJetRefs)[fatJetIdx];
+    const auto* fatJet = dynamic_cast<const pat::Jet*>(&candidate);
+    if (fatJet == nullptr) {
       continue;
     }
-
-    const auto* fatJetPtr = dynamic_cast<const pat::Jet*>(cand);
-    if (fatJetPtr == nullptr) {
-      // Defensive: the underlying candidate isn't actually a pat::Jet.
-      // Should not happen for selectedSlimmedJetsAK8, but avoids a crash
-      // if the upstream selector's source collection ever changes type.
-      continue;
-    }
-    const auto& fatJet = *fatJetPtr;
 
     std::vector<fastjet::PseudoJet> inputs;
-    inputs.reserve(fatJet.numberOfDaughters());
+    inputs.reserve(fatJet->numberOfDaughters());
 
-    const auto daughterPtrs = fatJet.daughterPtrVector();
+    const auto daughterPtrs = fatJet->daughterPtrVector();
     if (!daughterPtrs.empty()) {
       for (const auto& daughter : daughterPtrs) {
         if (daughter.isNull() || !daughter.isAvailable()) {
@@ -157,8 +145,8 @@ void AK8ReclusterTableProducer::produce(edm::Event& event, const edm::EventSetup
         inputs.emplace_back(daughter->px(), daughter->py(), daughter->pz(), daughter->energy());
       }
     } else {
-      for (size_t idx = 0; idx < fatJet.numberOfDaughters(); ++idx) {
-        const auto* daughter = fatJet.daughter(idx);
+      for (size_t idx = 0; idx < fatJet->numberOfDaughters(); ++idx) {
+        const auto* daughter = fatJet->daughter(idx);
         if (daughter == nullptr) {
           continue;
         }
@@ -213,9 +201,9 @@ void AK8ReclusterTableProducer::produce(edm::Event& event, const edm::EventSetup
 
 void AK8ReclusterTableProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  // NOTE: "fatJets" must resolve to a collection that can be read as edm::View<reco::Candidate>
-  // (e.g. the output of a CandViewRefSelector such as selectedSlimmedJetsAK8).
-  desc.add<edm::InputTag>("fatJets", edm::InputTag("selectedSlimmedJetsAK8"));
+  // NOTE: "fatJets" must resolve to a collection readable as View<Candidate>,
+  // including the RefVector produced by CandViewRefSelector.
+  desc.add<edm::InputTag>("fatJets", edm::InputTag("selectedFinalJetsAK8"));
   desc.add<std::string>("name", "FatJet");
   desc.add<std::string>("doc", "raw_sj1 and raw_sj2 from CA R=0.8 declustering inside each slimmedJetsAK8 jet");
   desc.add<std::string>("algorithm", "CambridgeAachen");

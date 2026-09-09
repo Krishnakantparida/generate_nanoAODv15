@@ -122,20 +122,21 @@ def SetupAK8ReclusterSubjets(process):
     """Add raw_sj1/raw_sj2 branches to the FatJet table.
 
     The C++ module reclusters each AK8 jet with Cambridge‑Aachen R=0.8 and
-    extracts the leading two‑prong split.  To keep the FatJet table size
-    consistent with the custom muon‑HLT skim we run the producer on the **filtered**
-    jet collection ``selectedSlimmedJetsAK8`` (the collection after the eta cut
-    and count filter).  The producer is appended to the end of the nano
-    sequences so it executes after the skim.
+    extracts the leading two‑prong split.  The producer consumes the same
+    ``finalJetsAK8`` selection (``pt > 170``) as the main FatJet table so its
+    extension has the same row count.  It is appended to the skim path so it
+    executes only for events accepted by the skim.
     """
 
-    # Determine which jet collection to use: the filtered one if it exists,
-    # otherwise fall back to the original collection (should never happen).
-    jet_input_tag = cms.InputTag("selectedSlimmedJetsAK8") if hasattr(process, "selectedSlimmedJetsAK8") else cms.InputTag("slimmedJetsAK8")
+    process.selectedFinalJetsAK8 = cms.EDFilter(
+        "CandViewRefSelector",
+        src=cms.InputTag("finalJetsAK8"),
+        cut=cms.string("pt > 170"),
+    )
 
     process.ak8ReclusteredSubjetTable = cms.EDProducer(
         "AK8ReclusterTableProducer",
-        fatJets=jet_input_tag,
+        fatJets=cms.InputTag("selectedFinalJetsAK8"),
         name=cms.string("FatJet"),
         doc=cms.string("raw_sj1 and raw_sj2 from CA R=0.8 declustering inside each slimmedJetsAK8 jet"),
         algorithm=cms.string("CambridgeAachen"),
@@ -145,22 +146,19 @@ def SetupAK8ReclusterSubjets(process):
         missingValue=cms.double(-99.0),
     )
 
-    # Instead of trying to modify the existing nano sequences (which are
-    # ``cms.Sequence`` objects that do not provide an ``append`` method), we
-    # create a dedicated path for the reclustering producer and add that path
-    # to the schedule *after* the skim path.  This ensures the producer sees the
-    # filtered jet collection and runs after the skim without relying on
-    # sequence mutation.
-    process.reclusterAK8 = cms.Path(process.ak8ReclusteredSubjetTable)
-    # Insert the new path at the end of the schedule (or create a schedule if
-    # it does not exist yet).
-    if hasattr(process, "schedule"):
-        process.schedule.append(process.reclusterAK8)
+    # Run in the skim path so rejected events never invoke the producer after
+    # the selector has withheld its event product.
+    if hasattr(process, "SKIMHLTSingleMuonOneFatJet"):
+        process.SKIMHLTSingleMuonOneFatJet += (
+            process.selectedFinalJetsAK8 * process.ak8ReclusteredSubjetTable
+        )
     else:
-        process.schedule = cms.Schedule(process.reclusterAK8)
-
-    # Guard against empty jet collections: if the selected collection is empty
-    # the C++ module will fill the vectors with ``missingValue`` which keeps the
-    # table lengths identical.  No further code is required.
+        process.reclusterAK8 = cms.Path(
+            process.selectedFinalJetsAK8 * process.ak8ReclusteredSubjetTable
+        )
+        if hasattr(process, "schedule"):
+            process.schedule.append(process.reclusterAK8)
+        else:
+            process.schedule = cms.Schedule(process.reclusterAK8)
 
     return process

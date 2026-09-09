@@ -252,9 +252,11 @@ echo "Config file: ${CFG_FILE}"
 echo "Number of input files: $(wc -l < "${INPUT_LIST}")"
 echo ""
 
-cmsRun ${CFG_FILE} #2>&1 | tee mc_job_${JOBID}.log
-
-CMSRUN_EXIT_CODE=$?
+if cmsRun "${CFG_FILE}" 2>&1 | tee "mc_job_${JOBID}.log"; then
+    CMSRUN_EXIT_CODE=0
+else
+    CMSRUN_EXIT_CODE=${PIPESTATUS[0]}
+fi
 
 echo ""
 echo "=========================================="
